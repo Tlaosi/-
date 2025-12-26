@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>植物大战僵尸（简化版）</title>
+    <style>
+        /* 基础样式 */
+        body { margin: 0; padding: 0; background: #f0e6d6; font-family: "Arial", sans-serif; }
+        .game-container { width: 1200px; height: 600px; margin: 20px auto; position: relative; background: url("bg.png") center no-repeat; background-size: cover; }
+        /* 地图网格（5行6列） */
+        .map { width: 900px; height: 450px; position: absolute; top: 50px; left: 150px; display: grid; grid-template-rows: repeat(5, 1fr); grid-template-columns: repeat(6, 1fr); gap: 5px; }
+        .grid { border: 1px solid rgba(0,0,0,0.1); cursor: pointer; }
+        /* 阳光显示区 */
+        .sun-count { position: absolute; top: 10px; left: 20px; font-size: 24px; color: #fff; text-shadow: 2px 2px 4px #000; }
+        /* 植物卡槽 */
+        .plant-slot { width: 1000px; height: 80px; position: absolute; bottom: 20px; left: 100px; display: flex; justify-content: space-around; align-items: center; }
+        .plant-item { width: 60px; height: 60px; background: rgba(255,255,255,0.8); border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; position: relative; }
+        .plant-item img { width: 50px; height: 50px; }
+        .plant-cost { position: absolute; bottom: 2px; right: 2px; font-size: 12px; color: #fff; background: #ff6b00; padding: 2px 5px; border-radius: 3px; }
+        /* 僵尸和植物的通用样式（JS 动态生成） */
+        .zombie, .plant { position: absolute; width: 60px; height: 60px; background-size: contain; background-repeat: no-repeat; background-position: center; }
+        /* 游戏结束弹窗 */
+        .game-over { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 400px; height: 200px; background: #000; opacity: 0.9; color: #fff; text-align: center; line-height: 200px; font-size: 36px; display: none; }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <div class="sun-count">阳光：<span id="sun">0</span></div>
+        <div class="map" id="map"></div>
+        <div class="plant-slot">
+            <div class="plant-item" data-type="sunflower" data-cost="50">
+                <img src="sunflower.png" alt="向日葵">
+                <div class="plant-cost">50</div>
+            </div>
+            <div class="plant-item" data-type="peashooter" data-cost="100">
+                <img src="peashooter.png" alt="豌豆射手">
+                <div class="plant-cost">100</div>
+            </div>
+            <div class="plant-item" data-type="nut" data-cost="100">
+                <img src="nut.png" alt="坚果墙">
+                <div class="plant-cost">100</div>
+            </div>
+            <div class="plant-item" data-type="snowpea" data-cost="175">
+                <img src="snowpea.png" alt="寒冰射手">
+                <div class="plant-cost">175</div>
+            </div>
+            <div class="plant-item" data-type="cherry" data-cost="150">
+                <img src="cherry.png" alt="樱桃炸弹">
+                <div class="plant-cost">150</div>
+            </div>
+        </div>
+        <div class="game-over" id="gameOver">游戏结束！</div>
+    </div>
+
+    <script>
+        // 1. 初始化游戏数据
+        const gameData = {
+            sun: 0, // 当前阳光
+            gridSize: { rows: 5, cols: 6 }, // 地图网格
+            zombieWave: 1, // 当前僵尸波数
+            maxWave: 10, // 最大波数
+            isGameOver: false // 游戏状态
+        };
+
+        // 2. 生成地图网格
+        const map = document.getElementById("map");
+        for (let i = 0; i < gameData.gridSize.rows; i++) {
+            for (let j = 0; j < gameData.gridSize.cols; j++) {
+                const grid = document.createElement("div");
+                grid.className = "grid";
+                grid.dataset.row = i;
+                grid.dataset.col = j;
+                // 网格点击事件（种植植物）
+                grid.addEventListener("click", plantOnGrid);
+                map.appendChild(grid);
+            }
+        }
+
+        // 3. 阳光自动生成（每5秒+25）
+        setInterval(() => {
+            if (!gameData.isGameOver) {
+                gameData.sun += 25;
+                document.getElementById("sun").textContent = gameData.sun;
+            }
+        }, 5000);
+
+        // 4. 种植植物逻辑
+        let selectedPlant = null; // 选中的植物
+        // 绑定植物卡槽点击事件
+        document.querySelectorAll(".plant-item").forEach(item => {
+            item.addEventListener("click", () => {
+                if (!gameData.isGameOver) {
+                    selectedPlant = {
+                        type: item.dataset.type,
+                        cost: parseInt(item.dataset.cost)
+                    };
+                }
+            });
+        });
+
+        // 在网格上种植植物
+        function plantOnGrid(e) {
+            if (!selectedPlant || gameData.isGameOver) return;
+            const grid = e.target;
+            const row = grid.dataset.row;
+            const col = grid.dataset.col;
+
+            // 检查阳光是否足够
+            if (gameData.sun < selectedPlant.cost) {
+                alert("阳光不足！");
+                return;
+            }
+
+            // 检查网格是否已有植物
+            if (grid.querySelector(".plant")) return;
+
+            // 扣除阳光，创建植物元素
+            gameData.sun -= selectedPlant.cost;
+            document.getElementById("sun").textContent = gameData.sun;
+
+            const plant = document.createElement("div");
+            plant.className = "plant";
+            plant.style.backgroundImage = `url(${selectedPlant.type}.png)`;
+            // 定位到网格中心
+            plant.style.left = `${col * 150 + 45}px`;
+            plant.style.top = `${row * 90 + 15}px`;
+            grid.appendChild(plant);
+
+            // 豌豆射手/寒冰射手自动攻击（每1秒发射子弹）
+            if (selectedPlant.type === "peashooter" || selectedPlant.type === "snowpea") {
+                setInterval(() => {
+                    if (!grid.querySelector(".plant")) return; // 植物被摧毁则停止
+                    shootPea(row, col, selectedPlant.type);
+                }, 1000);
+            }
+
+            // 樱桃炸弹立即爆炸（清3x3范围僵尸）
+            if (selectedPlant.type === "cherry") {
+                setTimeout(() => {
+                    explodeCherry(row, col);
+                    grid.removeChild(plant); // 爆炸后消失
+                }, 500);
+            }
+
+            selectedPlant = null; // 重置选中植物
+        }
+
+        // 5. 发射子弹逻辑
+        function shootPea(row, col, type) {
+            const pea = document.createElement("div");
+            pea.style.position = "absolute";
+            pea.style.width = "10px";
+            pea.style.height = "10px";
+            pea.style.background = type === "peashooter" ? "#333" : "#87CEEB";
+            pea.style.borderRadius = "50%";
+            // 子弹起始位置（植物右侧）
+            pea.style.left = `${col * 150 + 100}px`;
+            pea.style.top = `${row * 90 + 45}px`;
+            document.querySelector(".game-container").appendChild(pea);
+
+            // 子弹移动（每秒60px）
+            const peaMove = setInterval(() => {
+                const left = parseInt(pea.style.left);
+                if (left > 1100) { // 超出地图范围移除
+                    clearInterval(peaMove);
+                    pea.remove();
+                    return;
+                }
+
+                // 检测子弹是否击中僵尸
+                document.querySelectorAll(".zombie").forEach(zombie => {
+                    const zLeft = parseInt(zombie.style.left);
+                    const zTop = parseInt(zombie.style.top);
+                    const zRow = Math.floor(zTop / 90);
+                    if (zRow === row && zLeft > left && zLeft < left + 30) {
+                        // 击中僵尸，扣除血量（简化为直接摧毁普通僵尸）
+                        zombie.remove();
+                        clearInterval(peaMove);
+                        pea.remove();
+                    }
+                });
+
+                pea.style.left = `${left + 5}px`;
+            }, 16);
+        }
+
+        // 6. 樱桃炸弹爆炸逻辑
+        function explodeCherry(row, col) {
+            document.querySelectorAll(".zombie").forEach(zombie => {
+                const zLeft = parseInt(zombie.style.left);
+                const zTop = parseInt(zombie.style.top);
+                const zRow = Math.floor(zTop / 90);
+                const zCol = Math.floor((zLeft - 150) / 150);
+                // 检测是否在3x3范围
+                if (Math.abs(zRow - row) <= 1 && Math.abs(zCol - col) <= 1) {
+                    zombie.remove();
+                }
+            });
+        }
+
+        // 7. 僵尸生成逻辑（每波生成3-5只，随波数增加）
+        function spawnZombie(wave) {
+            const zombieCount = 3 + Math.floor(wave / 2); // 波数越多，僵尸越多
+            for (let i = 0; i < zombieCount; i++) {
+                setTimeout(() => {
+                    if (gameData.isGameOver) return;
+                    const zombie = document.createElement("div");
+                    zombie.className = "zombie";
+                    // 随机僵尸类型（普通/路障/撑杆）
+                    const zombieTypes = ["normal", "cone", "pole"];
+                    const randomType = zombieTypes[Math.floor(Math.random() * zombieTypes.length)];
+                    zombie.style.backgroundImage = `url(zombie_${randomType}.png)`;
+                    // 随机生成在某一行
+                    const row = Math.floor(Math.random() * gameData.gridSize.rows);
+                    zombie.style.left = "1100px";
+                    zombie.style.top = `${row * 90 + 15}px`;
+                    document.querySelector(".game-container").appendChild(zombie);
+
+                    // 僵尸移动（每秒3-5px，随波数加快）
+                    const speed = 3 + Math.floor(wave / 3);
+                    const zombieMove = setInterval(() => {
+                        const left = parseInt(zombie.style.left);
+                        if (left < 150) { // 到达家园，游戏结束
+                            gameData.isGameOver = true;
+                            document.getElementById("gameOver").style.display = "block";
+                            clearInterval(zombieMove);
+                            return;
+                        }
+
+                        // 检测僵尸是否遇到植物（停止移动并"啃食"）
+                        const row = Math.floor(parseInt(zombie.style.top) / 90);
+                        const currentCol = Math.floor((left - 150) / 150);
+                        const grid = document.querySelector(`.grid[data-row="${row}"][data-col="${currentCol}"]`);
+                        if (grid && grid.querySelector(".plant")) {
+                            // 啃食3秒后摧毁植物
+                            setTimeout(() => {
+                                grid.removeChild(grid.querySelector(".plant"));
+                            }, 3000);
+                            clearInterval(zombieMove);
+                            return;
+                        }
+
+                        zombie.style.left = `${left - speed}px`;
+                    }, 16);
+                }, i * 1000); // 逐个生成，避免扎堆
+            }
+
+            // 下一波僵尸（间隔30秒）
+            if (wave < gameData.maxWave) {
+                setTimeout(() => {
+                    if (!gameData.isGameOver) {
+                        gameData.zombieWave++;
+                        spawnZombie(gameData.zombieWave);
+                    }
+                }, 30000);
+            } else {
+                // 通关提示
+                setTimeout(() => {
+                    if (!gameData.isGameOver) {
+                        alert("恭喜通关！");
+                    }
+                }, 5000);
+            }
+        }
+
+        // 8. 启动游戏（第一波僵尸）
+        setTimeout(() => {
+            spawnZombie(gameData.zombieWave);
+        }, 10000); // 游戏开始10秒后生成第一波僵尸
+    </script>
+</body>
+</html>
+</body>
+</html>
